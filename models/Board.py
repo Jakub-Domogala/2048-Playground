@@ -18,6 +18,8 @@ class Board():
         return np.argwhere(self.board == None)
     
     def get_current_score(self):
+        # TODO score should be calculated in totally diffrent way xd
+        # pretty important for learning
         return np.sum(np.where(self.board == None, 0, self.board))
 
     def add_num(self):
