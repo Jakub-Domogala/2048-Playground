@@ -39,8 +39,8 @@ class Board():
         options = self.get_list_of_empty()
         if len(options) == 0:
             return False
-        x, y = choice(options)
-        self.board[y][x] = 2
+        row, col = choice(options)
+        self.board[row, col] = 2
         return True
 
     
