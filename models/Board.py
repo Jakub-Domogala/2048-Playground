@@ -8,11 +8,20 @@ class Board():
         self.score = 0
         self.moves_count = 0
         self.moves = [(1,0), (0,1), (-1,0), (0,-1)]
+            
+    def __str__(self):
+        cell_width = 5
+        create_sep = lambda l, c, r:  l + c.join("─" * cell_width for _ in self.board[0]) + r + '\n'
+        
+        separator = create_sep('├', '┼', '┤')
+        upper_bar = create_sep('╭', '┬', '╮')
+        lower_bar = create_sep('╰', '┴', '╯')
 
-    def print(self):
-        for row in self.board:
-            formatted_row = [f"{num:3}," if num is not None else "   ," for num in row]
-            print("".join(formatted_row))
+        rows = "".join([
+            x for row in self.board for x in (("│" + "│".join(f"{str(cell or ''):^{cell_width}}" for cell in row) + "│\n"), separator)
+        ][:-1])
+
+        return f"{upper_bar}{rows}{lower_bar}"
     
     def get_list_of_empty(self):
         return np.argwhere(self.board == None)
