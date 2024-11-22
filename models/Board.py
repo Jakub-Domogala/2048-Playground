@@ -4,7 +4,7 @@ import numpy as np
 class Board():
     def __init__(self, size):
         self.size = size
-        self.board = np.full((size, size), None, dtype=object)
+        self.board = np.full((size, size), 0)
         self.score = 0
         self.moves_count = 0
         self.moves = [(1,0), (0,1), (-1,0), (0,-1)]
@@ -24,12 +24,12 @@ class Board():
         return f"{upper_bar}{rows}{lower_bar}"
     
     def get_list_of_empty(self):
-        return np.argwhere(self.board == None)
+        return np.argwhere(self.board == 0)
     
     def get_current_score(self):
-        # TODO score should be calculated in totally diffrent way xd
+        # TODO score should be calculated in totally different way xd
         # pretty important for learning
-        return np.sum(np.where(self.board == None, 0, self.board))
+        return np.sum(self.board)
 
     def add_num(self):
         """
@@ -48,7 +48,7 @@ class Board():
         prev = None
         merged = []
         for n in nums:
-            if n == None:
+            if n == 0:
                 continue
             if n == prev:
                 merged[-1] = n + n
@@ -56,7 +56,7 @@ class Board():
             else:
                 merged.append(n)
                 prev = n
-        return merged + [None] * (self.size - len(merged))
+        return merged + [0] * (self.size - len(merged))
 
     
     def make_move_in_dir(self, id):
@@ -82,6 +82,12 @@ class Board():
                     is_moved = True
                     self.board[i] = merged_nums[::direction]
         return is_moved
+    
+    def is_over(self):
+        for move in range(4):
+            if self.is_movable_in_dir(move):
+                return False
+        return True
     
     def is_movable_in_dir(self, id):
         """
