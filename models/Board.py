@@ -1,5 +1,6 @@
 from random import choice
 import numpy as np
+import time
 
 class Board():
     def __init__(self, size):
@@ -15,12 +16,17 @@ class Board():
             print("".join(formatted_row))
     
     def get_list_of_empty(self):
-        return np.argwhere(self.board == None)
+        return [(i, j) for i in range(self.board.shape[0]) for j in range(self.board.shape[1]) if self.board[j, i] is None]
+        # return np.argwhere(self.board == None)
     
     def get_current_score(self):
         # TODO score should be calculated in totally diffrent way xd
         # pretty important for learning
-        return np.sum(np.where(self.board == None, 0, self.board))
+        return self.score
+        # return np.sum(np.where(self.board == None, 0, self.board))
+
+    def is_lost(self):
+        return 0 == sum([self.is_movable_in_dir(i) for i in range(self.size)])
 
     def add_num(self):
         """
@@ -28,6 +34,7 @@ class Board():
         False if Board was already full
         """
         options = self.get_list_of_empty()
+        print(options)
         if len(options) == 0:
             return False
         x, y = choice(options)
@@ -35,7 +42,7 @@ class Board():
         return True
 
     
-    def merge_nums(self, nums):
+    def merge_nums(self, nums, add_to_score = False):
         prev = None
         merged = []
         for n in nums:
@@ -43,6 +50,8 @@ class Board():
                 continue
             if n == prev:
                 merged[-1] = n + n
+                if add_to_score:
+                    self.score += merged[-1]
                 prev = None
             else:
                 merged.append(n)
@@ -60,7 +69,7 @@ class Board():
             direction = -1 if id == 1 else 1
             for i in range(self.size):
                 nums = self.board[:,i][::direction]
-                merged_nums = self.merge_nums(nums)
+                merged_nums = self.merge_nums(nums, True)
                 if not np.array_equal(nums, merged_nums):
                     is_moved = True
                     self.board[:,i] = merged_nums[::direction]
@@ -68,7 +77,7 @@ class Board():
             direction = -1 if id == 0 else 1
             for i in range(self.size):
                 nums = self.board[i][::direction]
-                merged_nums = self.merge_nums(nums)
+                merged_nums = self.merge_nums(nums, True)
                 if not np.array_equal(nums, merged_nums):
                     is_moved = True
                     self.board[i] = merged_nums[::direction]
@@ -95,3 +104,19 @@ class Board():
                 if not np.array_equal(nums, merged_nums):
                     is_moved = True
         return is_moved
+    
+    def play_random(self):
+        ids = list(range(len(self.moves)))
+        self.add_num()
+        self.print()
+        while not self.is_lost():
+            next_move = choice(ids)
+            while not self.is_movable_in_dir(next_move):
+                next_move = choice(ids)
+            self.make_move_in_dir(next_move)
+            self.print()
+            print(self.get_current_score())
+            self.add_num()
+            self.print()
+            # time.sleep(0.2)
+        print(f"You lost with score of {self.get_current_score()}")
