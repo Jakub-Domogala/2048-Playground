@@ -8,6 +8,7 @@ class Board():
         self.score = 0
         self.moves_count = 0
         self.moves = [(1,0), (0,1), (-1,0), (0,-1)]
+        self.score = 0
             
     def __str__(self):
         cell_width = 5
@@ -29,7 +30,7 @@ class Board():
     def get_current_score(self):
         # TODO score should be calculated in totally different way xd
         # pretty important for learning
-        return np.sum(self.board)
+        return self.score
 
     def add_num(self):
         """
@@ -45,6 +46,7 @@ class Board():
 
     
     def merge_nums(self, nums):
+        added_score = 0
         prev = None
         merged = []
         for n in nums:
@@ -52,11 +54,12 @@ class Board():
                 continue
             if n == prev:
                 merged[-1] = n + n
+                added_score += n + n
                 prev = None
             else:
                 merged.append(n)
                 prev = n
-        return merged + [0] * (self.size - len(merged))
+        return merged + [0] * (self.size - len(merged)), added_score
 
     
     def make_move_in_dir(self, id):
@@ -69,18 +72,21 @@ class Board():
             direction = -1 if id == 1 else 1
             for i in range(self.size):
                 nums = self.board[:,i][::direction]
-                merged_nums = self.merge_nums(nums)
+                merged_nums, added_score = self.merge_nums(nums)
                 if not np.array_equal(nums, merged_nums):
                     is_moved = True
                     self.board[:,i] = merged_nums[::direction]
+                    self.score += added_score
         elif id == 0 or id == 2:
             direction = -1 if id == 0 else 1
             for i in range(self.size):
                 nums = self.board[i][::direction]
-                merged_nums = self.merge_nums(nums)
+                merged_nums, added_score = self.merge_nums(nums)
                 if not np.array_equal(nums, merged_nums):
                     is_moved = True
                     self.board[i] = merged_nums[::direction]
+                    self.score += added_score
+        
         return is_moved
     
     def is_over(self):
@@ -88,6 +94,9 @@ class Board():
             if self.is_movable_in_dir(move):
                 return False
         return True
+    
+    def get_max_tile(self):
+        return np.max(self.board)
     
     def is_movable_in_dir(self, id):
         """
@@ -99,14 +108,14 @@ class Board():
             direction = -1 if id == 1 else 1
             for i in range(self.size):
                 nums = self.board[:,i][::direction]
-                merged_nums = self.merge_nums(nums)
+                merged_nums, _ = self.merge_nums(nums)
                 if not np.array_equal(nums, merged_nums):
                     is_moved = True
         elif id == 0 or id == 2:
             direction = -1 if id == 0 else 1
             for i in range(self.size):
                 nums = self.board[i][::direction]
-                merged_nums = self.merge_nums(nums)
+                merged_nums, _ = self.merge_nums(nums)
                 if not np.array_equal(nums, merged_nums):
                     is_moved = True
         return is_moved
