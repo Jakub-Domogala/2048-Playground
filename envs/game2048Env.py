@@ -12,8 +12,7 @@ class Game2048Env(gym.Env):
         # Action space: 4 discrete actions (up, right, down, left)
         self.action_space = spaces.Discrete(4)
         
-        # TODO
-        # self.observation_space = 
+        self.observation_space = spaces.Box(0, 1, [size,size,16], dtype=int)
 
         self.reset()
 
@@ -24,13 +23,30 @@ class Game2048Env(gym.Env):
         return self._get_observation()
 
     def _get_observation(self):
-        # TODO
-        pass
-
+        log_board = np.zeros_like(self.board.board, dtype=int)
+        non_zero_mask = self.board.board > 0
+        log_board[non_zero_mask] = np.log2(self.board.board[non_zero_mask]).astype(int)
+        return np.eye(16, dtype=int)[log_board].reshape(4, 4, 16).transpose(2, 0, 1)
+    
+    
     def step(self, action):
-        self.board.make_move_in_dir(action)
+        prev_score = self.board.get_current_score()
+        prev_max_tile = self.board.get_max_tile()
+
+        is_moved = self.board.make_move_in_dir(action)
+        self.board.add_num()
+
         obs = self._get_observation()
-        reward = self.board.get_current_score()
+        
+        reward = self.board.get_current_score() - prev_score
+        if not is_moved:
+            reward -= 0.1  # Penalize invalid moves
+        max_tile = self.board.get_max_tile()
+        if max_tile > prev_max_tile:
+            reward += max_tile / 100.0  # Bonus for creating larger tiles
+        
+        reward /= 1.0 # Normalize reward for stable training
+        
         done = self.board.is_over()
         
         return obs, reward, done, {}
