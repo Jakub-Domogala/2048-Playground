@@ -1,0 +1,10 @@
+exp_name: "dqn_experiment-3"
+episodes: 500
+learning_rate: 1.0e-4
+buffer_size: 50000
+gamma: 0.9
+target_update_freq: 10
+batch_size: 64
+start_epsilon: 0.9
+min_epsilon: 0.01
+epsilon_decay: 0.995
