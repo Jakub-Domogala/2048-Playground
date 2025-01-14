@@ -76,6 +76,9 @@ class Args:
     epsilon_decay: float = 0.997
     max_try: int = 20000
     
+    # Checkpoint file
+    checkpoint: str = "checkpoint.pth"
+    
     @staticmethod
     def from_yaml(file_path: str):
         with open(file_path, 'r') as f:
@@ -139,9 +142,8 @@ class Learner():
             action = torch.argmax(q_values).item()
         return action
     
-    def learn(self):        
+    def random_game(self):
         self.rewards_per_episode = []
-        self.epsilon = self.args.start_epsilon
 
         for episode in tqdm(range(self.args.episodes), desc="Training Progress", leave=True):
             
@@ -149,11 +151,35 @@ class Learner():
             episode_reward = 0
             
             for t in range(self.args.max_try):
-                action = learner.sample_action(state)
+                action = self.env.action_space.sample()
                 next_state, reward, done, _ = self.env.step(action)
-                learner.replay_buffer.append((state, action, reward, next_state, done))
                 
-                loss = learner.optimize_model()
+                episode_reward += reward
+                state = next_state
+                
+                if done:
+                    break
+                
+            tqdm.write(f"Episode {episode + 1}: Moves = {t}, Max tile = {self.env.board.get_max_tile()}, Reward = {episode_reward:.2f}")
+            self.rewards_per_episode.append(episode_reward)
+
+        self.save_rewards_and_parameters()
+    
+    def learn(self, start_epoch=0):        
+        self.rewards_per_episode = self.rewards_per_episode[:start_epoch]  # Ensure logging is continuous
+        self.epsilon = self.args.start_epsilon * (self.args.epsilon_decay ** start_epoch)
+
+        for episode in tqdm(range(start_epoch, self.args.episodes), desc="Training Progress", leave=True):
+            
+            state = self.env.reset()
+            episode_reward = 0
+            
+            for t in range(self.args.max_try):
+                action = self.sample_action(state)
+                next_state, reward, done, _ = self.env.step(action)
+                self.replay_buffer.append((state, action, reward, next_state, done))
+                
+                loss = self.optimize_model()
                 episode_reward += reward
                 state = next_state
                 
@@ -163,7 +189,7 @@ class Learner():
             tqdm.write(f"Episode {episode + 1}: Moves = {t}, Max tile = {self.env.board.get_max_tile()}, Reward = {episode_reward:.2f}, Loss = {loss:.5f}")
             self.rewards_per_episode.append(episode_reward)
         
-            if episode % self.args.target_update_freq == 0:
+            if episode % self.args.target_update_freq == 1:
                 self.target_network.load_state_dict(self.q_network.state_dict())
                 self.q_network.train()
                 self.save_rewards_and_parameters()
@@ -182,25 +208,61 @@ class Learner():
             yaml.dump(args.__dict__, f)
 
     
-    def save_checkpoint(self, epoch, loss, filename="checkpoint.pth"):
+    def save_checkpoint(self, epoch, loss, filename=None):
         checkpoint = {
             'epoch': epoch,
-            'model_state_dict': self.q_network.state_dict(),
+            'q_network_state_dict': self.q_network.state_dict(),
+            'target_network_state_dict': self.target_network.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
+            'replay_buffer': list(self.replay_buffer),
+            'rewards_per_episode': self.rewards_per_episode,
+            'epsilon': self.epsilon,
             'loss': loss,
         }
-        torch.save(checkpoint, filename)
+        
+        if filename is None:
+            filename = self.args.exp_name
+        torch.save(checkpoint, f'checkpoints/{filename}')
+        tqdm.write(f"Checkpoint saved at epoch {epoch} to checkpoints/{filename}")
+        
+    def load_checkpoint(self, filename=""):
+        if os.path.exists(filename):
+            checkpoint = torch.load(filename, weights_only=False)
+            self.q_network.load_state_dict(checkpoint['q_network_state_dict'])
+            self.target_network.load_state_dict(checkpoint['target_network_state_dict'])
+            self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            self.replay_buffer = deque(checkpoint['replay_buffer'], maxlen=self.args.buffer_size)
+            self.rewards_per_episode = checkpoint['rewards_per_episode']
+            self.epsilon = checkpoint['epsilon']
+            start_epoch = checkpoint['epoch']
+            loss = checkpoint['loss']
+            tqdm.write(f"Checkpoint loaded: Resuming from epoch {start_epoch + 1}, last recorded loss: {loss:.5f}")
+            return start_epoch
+        else:
+            tqdm.write(f"Checkpoint file not found: {filename}. Starting training from scratch.")
+            return 0
+
+
+        
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, help="Path to config file (YAML).", default='config.yaml')
-    args = parser.parse_args()
+    parser.add_argument("--checkpoint", type=str, help="Path to checkpoint file (optional).", default='checkpoint.pth')
 
-    args = Args.from_yaml(args.config)
+    cli_args = parser.parse_args()
 
+    args = Args.from_yaml(cli_args.config)
+    args.checkpoint = cli_args.checkpoint 
     
     learner = Learner(args)
-    learner.learn()
+    # Load checkpoint if available
+    start_epoch = learner.load_checkpoint(args.checkpoint)
+
+    # Resume training from the checkpoint
+    learner.learn(start_epoch=start_epoch)
+    # learner.random_game()
     learner.save_rewards_and_parameters()
 
     
