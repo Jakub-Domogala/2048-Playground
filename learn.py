@@ -79,6 +79,8 @@ class Args:
     # Checkpoint file
     checkpoint: str = "checkpoint.pth"
     
+    output_dir: str = '.'
+    
     @staticmethod
     def from_yaml(file_path: str):
         with open(file_path, 'r') as f:
@@ -103,6 +105,7 @@ class Learner():
 
         self.replay_buffer = deque(maxlen=args.buffer_size)
         self.epsilon = self.args.start_epsilon
+        self.rewards_per_episode = []
 
 
     def optimize_model(self):
@@ -160,7 +163,7 @@ class Learner():
                 if done:
                     break
                 
-            tqdm.write(f"Episode {episode + 1}: Moves = {t}, Max tile = {self.env.board.get_max_tile()}, Reward = {episode_reward:.2f}")
+            tqdm.write(f"Episode {episode + 1}: Moves = {t}, Max tile = {self.env.board.get_max_tile()}, Reward = {episode_reward:.2f}, Last 50 avg reward: {np.mean(self.rewards_per_episode[-50:]):.2f}")
             self.rewards_per_episode.append(episode_reward)
 
         self.save_rewards_and_parameters()
@@ -192,17 +195,20 @@ class Learner():
             if episode % self.args.target_update_freq == 1:
                 self.target_network.load_state_dict(self.q_network.state_dict())
                 self.q_network.train()
+            
+            if episode % 50 == 1:
                 self.save_rewards_and_parameters()
                 self.save_checkpoint(episode, loss)
                 
             
             self.epsilon = max(self.args.min_epsilon, self.epsilon * self.args.epsilon_decay)
         self.save_checkpoint(episode, loss)
+        self.save_rewards_and_parameters()
     
     def save_rewards_and_parameters(self, filename=None):
         if filename is None:
             filename = self.args.exp_name
-        np.savetxt(f'results/{filename}', [self.rewards_per_episode])
+        np.savetxt(f'{self.args.output_dir}/{filename}.txt', [self.rewards_per_episode])
         
         with open((f"parameters/{filename}-config.yaml"), "w") as f:
             yaml.dump(args.__dict__, f)
@@ -221,9 +227,9 @@ class Learner():
         }
         
         if filename is None:
-            filename = self.args.exp_name
-        torch.save(checkpoint, f'checkpoints/{filename}')
-        tqdm.write(f"Checkpoint saved at epoch {epoch} to checkpoints/{filename}")
+            filename = self.args.exp_name + ".pth"
+        torch.save(checkpoint, f'{self.args.output_dir}/{filename}')
+        tqdm.write(f"Checkpoint saved at epoch {epoch} to {self.args.output_dir}/{filename}")
         
     def load_checkpoint(self, filename=""):
         if os.path.exists(filename):
@@ -246,7 +252,7 @@ class Learner():
         
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":    
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, help="Path to config file (YAML).", default='config.yaml')
     parser.add_argument("--checkpoint", type=str, help="Path to checkpoint file (optional).", default='checkpoint.pth')
@@ -254,7 +260,9 @@ if __name__ == "__main__":
     cli_args = parser.parse_args()
 
     args = Args.from_yaml(cli_args.config)
-    args.checkpoint = cli_args.checkpoint 
+    args.checkpoint = cli_args.checkpoint
+    
+    os.makedirs(args.output_dir, exist_ok=True)
     
     learner = Learner(args)
     # Load checkpoint if available
@@ -264,5 +272,3 @@ if __name__ == "__main__":
     learner.learn(start_epoch=start_epoch)
     # learner.random_game()
     learner.save_rewards_and_parameters()
-
-    
