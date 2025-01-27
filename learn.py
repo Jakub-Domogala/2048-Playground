@@ -93,7 +93,7 @@ class Learner():
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.env = Game2048Env(size=4)
         self.q_network = DQN().to(device)
-        self.optimizer = optim.AdamW(self.q_network.parameters(), lr=args.learning_rate, amsgrad=True)
+        self.optimizer = optim.Adam(self.q_network.parameters(), lr=args.learning_rate)
         # self.optimizer = torch.optim.RMSprop(self.q_network.parameters(), lr=args.learning_rate, alpha=0.99, eps=1e-6)
         self.target_network = DQN().to(device)
         self.target_network.load_state_dict(self.q_network.state_dict())
@@ -126,7 +126,7 @@ class Learner():
             max_next_q_values = self.target_network(next_state_batch).max(1)[0]
             target_q_values = reward_batch + self.args.gamma * max_next_q_values * (1 - done_batch)
 
-        loss = nn.SmoothL1Loss()(q_values, target_q_values.unsqueeze(1))
+        loss = nn.MSELoss()(q_values, target_q_values.unsqueeze(1))
 
         self.optimizer.zero_grad()
         loss.backward()
